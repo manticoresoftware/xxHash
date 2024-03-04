@@ -323,6 +323,45 @@ extern "C" {
 #  undef XXH_NAMESPACE
 #endif
 
+ /* *************************************
+ *  Compiler Specific Options
+ ***************************************/
+#ifdef _MSC_VER /* Visual Studio warning fix */
+#  pragma warning(disable : 4127) /* disable: C4127: conditional expression is constant */
+#endif
+
+#if XXH_NO_INLINE_HINTS  /* disable inlining hints */
+	#if defined(__GNUC__) || defined(__clang__)
+		#define XXH_FORCE_INLINE static __attribute__((unused))
+	#else
+		#define XXH_FORCE_INLINE static
+	#endif
+	#define XXH_NO_INLINE static
+#else /* enable inlining hints */
+	#ifndef NDEBUG
+		#define XXH_FORCE_INLINE static inline
+		#define XXH_NO_INLINE static
+	#elif defined(__GNUC__) || defined(__clang__)
+		#define XXH_FORCE_INLINE static __inline__ __attribute__((always_inline, unused))
+		#define XXH_NO_INLINE static __attribute__((noinline))
+	#elif defined(_MSC_VER)  /* Visual Studio */
+		#define XXH_FORCE_INLINE static __forceinline
+		#define XXH_NO_INLINE static __declspec(noinline)
+	#elif defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L))   /* C99 */
+		#define XXH_FORCE_INLINE static inline
+		#define XXH_NO_INLINE static
+	#else
+		#define XXH_FORCE_INLINE static
+		#define XXH_NO_INLINE static
+	#endif
+#endif
+
+#if XXH3_INLINE_SECRET
+#  define XXH3_WITH_SECRET_INLINE XXH_FORCE_INLINE
+#else
+#  define XXH3_WITH_SECRET_INLINE XXH_NO_INLINE
+#endif
+
 #if (defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)) \
     && !defined(XXH_INLINE_ALL_31684351384)
    /* this section should be traversed only once */
@@ -333,11 +372,11 @@ extern "C" {
    /* make all functions private */
 #  undef XXH_PUBLIC_API
 #  if defined(__GNUC__)
-#    define XXH_PUBLIC_API static __inline __attribute__((unused))
+#    define XXH_PUBLIC_API static XXH_FORCE_INLINE __attribute__((unused))
 #  elif defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */)
-#    define XXH_PUBLIC_API static inline
+#    define XXH_PUBLIC_API static XXH_FORCE_INLINE
 #  elif defined(_MSC_VER)
-#    define XXH_PUBLIC_API static __inline
+#    define XXH_PUBLIC_API static XXH_FORCE_INLINE
 #  else
      /* note: this version may generate warnings for unused static functions */
 #    define XXH_PUBLIC_API static
@@ -452,7 +491,7 @@ extern "C" {
 #      define XXH_PUBLIC_API __declspec(dllimport)
 #    endif
 #  else
-#    define XXH_PUBLIC_API   /* do nothing */
+#    define XXH_PUBLIC_API /* do nothing */
 #  endif
 #endif
 
@@ -518,19 +557,6 @@ extern "C" {
 /* *************************************
 *  Compiler specifics
 ***************************************/
-
-/* specific declaration modes for Windows */
-#if !defined(XXH_INLINE_ALL) && !defined(XXH_PRIVATE_API)
-#  if defined(WIN32) && defined(_MSC_VER) && (defined(XXH_IMPORT) || defined(XXH_EXPORT))
-#    ifdef XXH_EXPORT
-#      define XXH_PUBLIC_API __declspec(dllexport)
-#    elif XXH_IMPORT
-#      define XXH_PUBLIC_API __declspec(dllimport)
-#    endif
-#  else
-#    define XXH_PUBLIC_API   /* do nothing */
-#  endif
-#endif
 
 #if defined (__GNUC__)
 # define XXH_CONSTF  __attribute__((const))
@@ -2356,50 +2382,12 @@ static void XXH_free(void* p) { free(p); }
  * @internal
  * @brief Modify this function to use a different routine than memcpy().
  */
-static void* XXH_memcpy(void* dest, const void* src, size_t size)
+XXH_FORCE_INLINE void* XXH_memcpy(void* dest, const void* src, size_t size)
 {
     return memcpy(dest,src,size);
 }
 
 #include <limits.h>   /* ULLONG_MAX */
-
-
-/* *************************************
-*  Compiler Specific Options
-***************************************/
-#ifdef _MSC_VER /* Visual Studio warning fix */
-#  pragma warning(disable : 4127) /* disable: C4127: conditional expression is constant */
-#endif
-
-#if XXH_NO_INLINE_HINTS  /* disable inlining hints */
-#  if defined(__GNUC__) || defined(__clang__)
-#    define XXH_FORCE_INLINE static __attribute__((unused))
-#  else
-#    define XXH_FORCE_INLINE static
-#  endif
-#  define XXH_NO_INLINE static
-/* enable inlining hints */
-#elif defined(__GNUC__) || defined(__clang__)
-#  define XXH_FORCE_INLINE static __inline__ __attribute__((always_inline, unused))
-#  define XXH_NO_INLINE static __attribute__((noinline))
-#elif defined(_MSC_VER)  /* Visual Studio */
-#  define XXH_FORCE_INLINE static __forceinline
-#  define XXH_NO_INLINE static __declspec(noinline)
-#elif defined (__cplusplus) \
-  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L))   /* C99 */
-#  define XXH_FORCE_INLINE static inline
-#  define XXH_NO_INLINE static
-#else
-#  define XXH_FORCE_INLINE static
-#  define XXH_NO_INLINE static
-#endif
-
-#if XXH3_INLINE_SECRET
-#  define XXH3_WITH_SECRET_INLINE XXH_FORCE_INLINE
-#else
-#  define XXH3_WITH_SECRET_INLINE XXH_NO_INLINE
-#endif
-
 
 /* *************************************
 *  Debug
@@ -2556,7 +2544,7 @@ typedef XXH32_hash_t xxh_u32;
  * Force direct memory access. Only works on CPU which support unaligned memory
  * access in hardware.
  */
-static xxh_u32 XXH_read32(const void* memPtr) { return *(const xxh_u32*) memPtr; }
+XXH_FORCE_INLINE xxh_u32 XXH_read32(const void* memPtr) { return *(const xxh_u32*) memPtr; }
 
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==1))
 
@@ -2570,7 +2558,7 @@ static xxh_u32 XXH_read32(const void* memPtr) { return *(const xxh_u32*) memPtr;
 #ifdef XXH_OLD_NAMES
 typedef union { xxh_u32 u32; } __attribute__((packed)) unalign;
 #endif
-static xxh_u32 XXH_read32(const void* ptr)
+XXH_FORCE_INLINE xxh_u32 XXH_read32(const void* ptr)
 {
     typedef __attribute__((aligned(1))) xxh_u32 xxh_unalign32;
     return *((const xxh_unalign32*)ptr);
@@ -2582,7 +2570,7 @@ static xxh_u32 XXH_read32(const void* ptr)
  * Portable and safe solution. Generally efficient.
  * see: https://fastcompression.blogspot.com/2015/08/accessing-unaligned-memory.html
  */
-static xxh_u32 XXH_read32(const void* memPtr)
+XXH_FORCE_INLINE xxh_u32 XXH_read32(const void* memPtr)
 {
     xxh_u32 val;
     XXH_memcpy(&val, memPtr, sizeof(val));
@@ -3232,7 +3220,7 @@ typedef XXH64_hash_t xxh_u64;
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
 
 /* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
-static xxh_u64 XXH_read64(const void* memPtr)
+XXH_FORCE_INLINE xxh_u64 XXH_read64(const void* memPtr)
 {
     return *(const xxh_u64*) memPtr;
 }
@@ -3249,7 +3237,7 @@ static xxh_u64 XXH_read64(const void* memPtr)
 #ifdef XXH_OLD_NAMES
 typedef union { xxh_u32 u32; xxh_u64 u64; } __attribute__((packed)) unalign64;
 #endif
-static xxh_u64 XXH_read64(const void* ptr)
+XXH_FORCE_INLINE xxh_u64 XXH_read64(const void* ptr)
 {
     typedef __attribute__((aligned(1))) xxh_u64 xxh_unalign64;
     return *((const xxh_unalign64*)ptr);
@@ -3261,7 +3249,7 @@ static xxh_u64 XXH_read64(const void* ptr)
  * Portable and safe solution. Generally efficient.
  * see: https://fastcompression.blogspot.com/2015/08/accessing-unaligned-memory.html
  */
-static xxh_u64 XXH_read64(const void* memPtr)
+XXH_FORCE_INLINE xxh_u64 XXH_read64(const void* memPtr)
 {
     xxh_u64 val;
     XXH_memcpy(&val, memPtr, sizeof(val));
@@ -3382,7 +3370,7 @@ static xxh_u64 XXH64_mergeRound(xxh_u64 acc, xxh_u64 val)
 }
 
 /*! @copydoc XXH32_avalanche */
-static xxh_u64 XXH64_avalanche(xxh_u64 hash)
+XXH_FORCE_INLINE xxh_u64 XXH64_avalanche(xxh_u64 hash)
 {
     hash ^= hash >> 33;
     hash *= XXH_PRIME64_2;
@@ -4302,7 +4290,7 @@ XXH_mult32to64(xxh_u64 x, xxh_u64 y)
  * @param lhs , rhs The 64-bit integers to be multiplied
  * @return The 128-bit result represented in an @ref XXH128_hash_t.
  */
-static XXH128_hash_t
+XXH_FORCE_INLINE XXH128_hash_t
 XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
 {
     /*
@@ -4436,7 +4424,7 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
  * @return The low 64 bits of the product XOR'd by the high 64 bits.
  * @see XXH_mult64to128()
  */
-static xxh_u64
+XXH_FORCE_INLINE xxh_u64
 XXH3_mul128_fold64(xxh_u64 lhs, xxh_u64 rhs)
 {
     XXH128_hash_t product = XXH_mult64to128(lhs, rhs);
@@ -4454,7 +4442,7 @@ XXH_FORCE_INLINE XXH_CONSTF xxh_u64 XXH_xorshift64(xxh_u64 v64, int shift)
  * This is a fast avalanche stage,
  * suitable when input bits are already partially mixed
  */
-static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
+XXH_FORCE_INLINE XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
 {
     h64 = XXH_xorshift64(h64, 37);
     h64 *= PRIME_MX1;
@@ -4467,7 +4455,7 @@ static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
  * inspired by Pelle Evensen's rrmxmx
  * preferable when input has not been previously mixed
  */
-static XXH64_hash_t XXH3_rrmxmx(xxh_u64 h64, xxh_u64 len)
+XXH_FORCE_INLINE XXH64_hash_t XXH3_rrmxmx(xxh_u64 h64, xxh_u64 len)
 {
     /* this mix is inspired by Pelle Evensen's rrmxmx */
     h64 ^= XXH_rotl64(h64, 49) ^ XXH_rotl64(h64, 24);
