@@ -339,7 +339,7 @@ extern "C" {
 	#define XXH_NO_INLINE static
 #else /* enable inlining hints */
 	#ifndef NDEBUG
-		#define XXH_FORCE_INLINE static inline
+		#define XXH_FORCE_INLINE inline
 		#define XXH_NO_INLINE static
 	#elif defined(__GNUC__) || defined(__clang__)
 		#define XXH_FORCE_INLINE static __inline__ __attribute__((always_inline, unused))
